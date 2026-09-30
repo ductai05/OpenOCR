@@ -46,7 +46,7 @@ class DecodeImage:
         img = cv2.imdecode(img, flags)
 
         if self.img_mode == 'GRAY':
-            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         elif self.img_mode == 'RGB':
             img = img[:, :, ::-1]
 
@@ -107,6 +107,7 @@ MODULE_MAPPING = {
     'ScriptAwareARLabelEncode': '.scriptaware_ar_label_encode',
     'ABINetAug': '.rec_aug',
     'BDA': '.rec_aug',
+    'BaseDataAugmentation': '.rec_aug',
     'PARSeqAug': '.rec_aug',
     'PARSeqAugPIL': '.rec_aug',
     'SVTRAug': '.rec_aug',
@@ -119,7 +120,9 @@ MODULE_MAPPING = {
     'SliceResize': '.resize',
     'SliceTVResize': '.resize',
     'SRNRecResizeImg': '.resize',
+    'RecRanInvert': '.rec_aug',
     'SVTRResize': '.resize',
+    'SVTRRecResizeImg': '.resize',
     'VisionLANResize': '.resize',
     'RecDynamicResize': '.resize',
     'NaSizeResize': '.resize',

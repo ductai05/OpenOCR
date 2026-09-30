@@ -117,7 +117,7 @@ class LMDBDataSet(Dataset):
         label = txn.get(label_key)
         if label is None:
             return None
-        label = label.decode('utf-8')
+        label = label.decode('utf-8').upper()
         img_key = 'image-%09d'.encode() % index
         imgbuf = txn.get(img_key)
         return imgbuf, label

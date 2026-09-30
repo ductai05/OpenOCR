@@ -62,7 +62,7 @@ class Trainer(object):
 
         self.writer = None
         if is_main_process(
-        ) and self.cfg['Global']['use_tensorboard'] and 'train' in mode:
+        ) and self.cfg['Global'].get('use_tensorboard', False) and 'train' in mode:
             import wandb
             from torch.utils.tensorboard import SummaryWriter
             wandb.init(project='demo-sync-tb',
@@ -161,7 +161,7 @@ class Trainer(object):
                     'find_unused_parameters', False))
 
         # amp
-        self.scaler = (torch.amp.GradScaler() if self.cfg['Global'].get(
+        self.scaler = (torch.cuda.amp.GradScaler() if self.cfg['Global'].get(
             'use_amp', False) else None)
 
         self.logger.info(
@@ -356,7 +356,7 @@ class Trainer(object):
                 # use amp
                 if self.scaler:
                     with torch.amp.autocast(device_type=self.device.type,
-                                            dtype=torch.bfloat16):
+                                            dtype=torch.float16):
                         if self.use_transformers:
                             inputs = {
                                 'pixel_values': batch_tensor[0],
@@ -384,13 +384,16 @@ class Trainer(object):
                 else:
                     preds = self.model(batch_tensor[0], data=batch_tensor[1:])
                     loss = self.loss_class(preds, batch_tensor)
+                    loss['loss'] = loss['loss'] / self.accumulation_steps
                     avg_loss = loss['loss']
                     avg_loss.backward()
-                    if self.grad_clip_val > 0:
-                        torch.nn.utils.clip_grad_norm_(
-                            self.model.parameters(),
-                            max_norm=self.grad_clip_val)
-                    self.optimizer.step()
+                    if (global_step + 1) % self.accumulation_steps == 0:
+                        if self.grad_clip_val > 0:
+                            torch.nn.utils.clip_grad_norm_(
+                                self.model.parameters(),
+                                max_norm=self.grad_clip_val)
+                        self.optimizer.step()
+                        self.optimizer.zero_grad(set_to_none=True)
 
                 if cal_metric_during_train:  # only rec and cls need
                     post_result = self.post_process_class(preds,
@@ -417,7 +420,7 @@ class Trainer(object):
                 # logger
                 stats = {
                     k: float(v)
-                    if v.shape == [] else v.detach().cpu().numpy().mean()
+                    if v.shape == [] else v.detach().cpu().float().numpy().mean()
                     for k, v in loss.items()
                 }
                 stats['lr'] = self.lr_scheduler.get_last_lr()[0]

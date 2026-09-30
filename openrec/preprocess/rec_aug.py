@@ -5,6 +5,18 @@ import numpy as np
 from PIL import Image, ImageOps
 
 
+class RecRanInvert(object):
+
+    def __init__(self, random_prob=0.4, **kwargs):
+        self.random_prob = random_prob
+
+    def __call__(self, data):
+        if random.random() <= self.random_prob:
+            img = data['image']
+            data['image'] = 255 - img
+        return data
+
+
 class PARSeqAugPIL(object):
 
     def __init__(self, **kwargs):
@@ -148,6 +160,9 @@ class BaseDataAugmentation(object):
 
         data['image'] = img
         return data
+
+
+BDA = BaseDataAugmentation
 
 
 class DocAug(object):

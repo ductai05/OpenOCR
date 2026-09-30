@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.init import kaiming_normal_, ones_, trunc_normal_, zeros_
 
 from openrec.modeling.common import DropPath, Identity, Mlp
@@ -65,10 +66,17 @@ class Attention(nn.Module):
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads,
                                   self.head_dim).permute(2, 0, 3, 1, 4)
         q, k, v = qkv.unbind(0)
-        attn = q @ k.transpose(-2, -1) * self.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-        x = attn @ v
+        try:
+            x = F.scaled_dot_product_attention(
+                q, k, v,
+                scale=self.scale,
+                dropout_p=self.attn_drop.p if self.training else 0.0,
+            )
+        except Exception:
+            attn = q @ k.transpose(-2, -1) * self.scale
+            attn = attn.softmax(dim=-1)
+            attn = self.attn_drop(attn)
+            x = attn @ v
         x = x.transpose(1, 2).reshape(B, N, self.dim)
         x = self.proj(x)
         x = self.proj_drop(x)

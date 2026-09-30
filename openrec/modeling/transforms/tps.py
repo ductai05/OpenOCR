@@ -241,6 +241,6 @@ class TPS(nn.Module):
             is_fp16 = True
         batch_I_r = F.grid_sample(image, grid=batch_P_prime)
         if is_fp16:
-            batch_I_r = batch_I_r.astype(data_type)
+            batch_I_r = batch_I_r.to(data_type)
 
         return batch_I_r

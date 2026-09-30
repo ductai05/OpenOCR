@@ -417,6 +417,10 @@ def resize_norm_img(img,
         else:
             resized_w = int(math.ceil(imgH * ratio))
         resized_image = cv2.resize(img, (resized_w, imgH))
+    if imgC == 1 and len(resized_image.shape) == 3:
+        resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
+    elif imgC == 3 and len(resized_image.shape) == 2:
+        resized_image = cv2.cvtColor(resized_image, cv2.COLOR_GRAY2BGR)
     resized_image = resized_image.astype('float32')
     if image_shape[0] == 1:
         resized_image = resized_image / 255

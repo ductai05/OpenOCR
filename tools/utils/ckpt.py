@@ -91,8 +91,19 @@ def load_pretrained_params(model, pretrained_model, logger):
     else:
         state_dict = checkpoint
 
-    model.load_state_dict(state_dict, strict=False)
     model_keys = model.state_dict().keys()
+    curr_state_dict = model.state_dict()
+    for name in list(state_dict.keys()):
+        if name in model_keys:
+            if state_dict[name].shape != curr_state_dict[name].shape:
+                if len(state_dict[name].shape) == 4 and state_dict[name].shape[1] == 3 and curr_state_dict[name].shape[1] == 1:
+                    logger.info(f"Converting 3-channel weight to 1-channel for {name} via mean")
+                    state_dict[name] = state_dict[name].mean(dim=1, keepdim=True)
+                else:
+                    logger.warning(f"Shape mismatch for {name}: {state_dict[name].shape} vs {curr_state_dict[name].shape}, skipping")
+                    del state_dict[name]
+
+    model.load_state_dict(state_dict, strict=False)
     for name in model_keys:
         if name not in state_dict:
             logger.info(f"{name} is not in pretrained model")

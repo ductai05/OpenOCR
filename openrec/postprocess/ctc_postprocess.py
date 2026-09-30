@@ -6,11 +6,16 @@ import numpy as np
 class BaseRecLabelDecode(object):
     """Convert between text-label and text-index."""
 
-    def __init__(self, character_dict_path=None, use_space_char=False):
+    def __init__(self,
+                 character_dict_path=None,
+                 use_space_char=False,
+                 delimiter_split_char_oneline=None,
+                 **kwargs):
         self.beg_str = 'sos'
         self.end_str = 'eos'
         self.reverse = False
         self.character_str = []
+        self.delimiter_split_char_oneline = delimiter_split_char_oneline
 
         if character_dict_path is None:
             self.character_str = '0123456789abcdefghijklmnopqrstuvwxyz'
@@ -20,6 +25,8 @@ class BaseRecLabelDecode(object):
                 lines = fin.readlines()
                 for line in lines:
                     line = line.decode('utf-8').strip('\n').strip('\r\n')
+                    if len(line) == 0:
+                        continue
                     self.character_str.append(line)
             if use_space_char:
                 self.character_str.append(' ')
@@ -29,9 +36,21 @@ class BaseRecLabelDecode(object):
 
         dict_character = self.add_special_char(dict_character)
         self.dict = {}
-        for i, char in enumerate(dict_character):
-            self.dict[char] = i
-        self.character = dict_character
+        if self.delimiter_split_char_oneline is not None and self.delimiter_split_char_oneline != '':
+            for i, str_ele in enumerate(dict_character):
+                if self.delimiter_split_char_oneline in str_ele:
+                    for ch in str_ele.split(self.delimiter_split_char_oneline):
+                        self.dict[ch] = i
+                else:
+                    self.dict[str_ele] = i
+            self.character = [
+                x.split(self.delimiter_split_char_oneline)[0] if self.delimiter_split_char_oneline in x else x
+                for x in dict_character
+            ]
+        else:
+            for i, char in enumerate(dict_character):
+                self.dict[char] = i
+            self.character = dict_character
 
     def pred_reverse(self, pred):
         pred_re = []
@@ -98,13 +117,14 @@ class CTCLabelDecode(BaseRecLabelDecode):
                  character_dict_path=None,
                  use_space_char=False,
                  **kwargs):
-        super(CTCLabelDecode, self).__init__(character_dict_path,
-                                             use_space_char)
+        super(CTCLabelDecode, self).__init__(character_dict_path=character_dict_path,
+                                             use_space_char=use_space_char,
+                                             **kwargs)
 
     def __call__(self, preds, batch=None, **kwargs):
         # preds = preds['res']
         if kwargs.get('torch_tensor', True):
-            preds = preds.detach().cpu().numpy()
+            preds = preds.detach().cpu().float().numpy()
         preds_idx = preds.argmax(axis=2)
         preds_prob = preds.max(axis=2)
         text = self.decode(preds_idx, preds_prob, is_remove_duplicate=True)

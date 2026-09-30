@@ -14,12 +14,15 @@ class BaseRecLabelEncode(object):
         character_dict_path=None,
         use_space_char=False,
         lower=False,
+        delimiter_split_char_oneline=None,
+        **kwargs,
     ):
         self.max_text_len = max_text_length
         self.beg_str = 'sos'
         self.end_str = 'eos'
         self.lower = lower
         self.reverse = False
+        self.delimiter_split_char_oneline = delimiter_split_char_oneline
         if character_dict_path is None:
             logger = get_logger()
             logger.warning(
@@ -34,6 +37,8 @@ class BaseRecLabelEncode(object):
                 lines = fin.readlines()
                 for line in lines:
                     line = line.decode('utf-8').strip('\n').strip('\r\n')
+                    if len(line) == 0:
+                        continue
                     self.character_str.append(line)
             if use_space_char:
                 self.character_str.append(' ')
@@ -42,9 +47,21 @@ class BaseRecLabelEncode(object):
                 self.reverse = True
         dict_character = self.add_special_char(dict_character)
         self.dict = {}
-        for i, char in enumerate(dict_character):
-            self.dict[char] = i
-        self.character = dict_character
+        if self.delimiter_split_char_oneline is not None and self.delimiter_split_char_oneline != '':
+            for i, str_ele in enumerate(dict_character):
+                if self.delimiter_split_char_oneline in str_ele:
+                    for ch in str_ele.split(self.delimiter_split_char_oneline):
+                        self.dict[ch] = i
+                else:
+                    self.dict[str_ele] = i
+            self.character = [
+                x.split(self.delimiter_split_char_oneline)[0] if self.delimiter_split_char_oneline in x else x
+                for x in dict_character
+            ]
+        else:
+            for i, char in enumerate(dict_character):
+                self.dict[char] = i
+            self.character = dict_character
 
     def label_reverse(self, text):
         text_re = []
@@ -77,8 +94,14 @@ class BaseRecLabelEncode(object):
         """
         if len(text) == 0:
             return None
+        text = str(text).upper()
         if self.lower:
             text = text.lower()
+        # Normalize Cyrillic homoglyphs to standard Latin to prevent silent character drops
+        homoglyph_map = {'Н': 'H', 'М': 'M', 'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'К': 'K', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X', 'У': 'Y'}
+        for k, v in homoglyph_map.items():
+            if k in text:
+                text = text.replace(k, v)
         text_list = []
         for char in text:
             if char not in self.dict:
@@ -98,8 +121,10 @@ class CTCLabelEncode(BaseRecLabelEncode):
                  use_space_char=False,
                  **kwargs):
         super(CTCLabelEncode,
-              self).__init__(max_text_length, character_dict_path,
-                             use_space_char)
+              self).__init__(max_text_length=max_text_length,
+                             character_dict_path=character_dict_path,
+                             use_space_char=use_space_char,
+                             **kwargs)
         self.is_reverse = kwargs.get('is_reverse', False)
 
     def __call__(self, data):

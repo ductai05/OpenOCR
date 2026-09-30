@@ -21,7 +21,7 @@ class BaseRecognizer(nn.Module):
         self.use_wd = config.get('use_wd', True)
         # build transfrom,
         # for rec, transfrom can be TPS,None
-        if 'Transform' not in config or config['Transform'] is None:
+        if 'Transform' not in config or config['Transform'] is None or config['Transform'] == 'None':
             self.use_transform = False
         else:
             self.use_transform = True
